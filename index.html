@@ -115,12 +115,11 @@
 </div>
 
 <script>
+    // === APIキーの定義（埋め込み済み） ===
+    const API_KEY = 'AQ.Ab8RN6K7TO1r38aYujE9VOwK7EbUVKfrMKRdOzw384yeexlpaA';
+
     const chatArea = document.getElementById('chatArea');
     const micBtn = document.getElementById('micBtn');
-
-    // === 【重要】ここに新しく取得した「AIza...」から始まるAPIキーを貼り付けてください ===
-    const API_KEY = 'ここに新しいAPIキーを貼り付けてください';
-    // ==============================================================================
 
     let chatHistory = [];
     let isRoleplaying = true;
@@ -215,11 +214,9 @@
         try {
             await callGeminiAPI();
         } catch (error) {
-            // エラー時もここで確実に処理し、フリーズを防ぐ
             console.error(error);
             addMessage('system', '通信エラー: ' + error.message);
         } finally {
-            // 成功しても失敗しても、最後に必ずボタンを元に戻す処理（フリーズ対策）
             if (isRoleplaying) {
                 micBtn.disabled = false;
                 micBtn.innerText = '🎤 マイクで話す';
@@ -228,7 +225,6 @@
     }
 
     async function callGeminiAPI() {
-        // モデルは最新で安定している gemini-2.0-flash に設定
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
 
         const response = await fetch(url, {
@@ -242,15 +238,13 @@
 
         const data = await response.json();
         
-        // APIキー間違いやエラーが返ってきた場合の処理
         if (!response.ok || data.error) {
             const errorMsg = data.error ? data.error.message : `HTTPエラー: ${response.status}`;
-            throw new Error(`APIエラー (${errorMsg})。APIキーが正しいか確認してください。`);
+            throw new Error(`APIエラー (${errorMsg})`);
         }
 
-        // AIの回答がブロックされたり空だったりした場合の処理
         if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
-            throw new Error('AIからの応答が空でした。内容がセキュリティにブロックされた可能性があります。');
+            throw new Error('AIからの応答が空でした。');
         }
 
         const aiText = data.candidates[0].content.parts[0].text;
