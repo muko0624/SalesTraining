@@ -40,18 +40,6 @@
         h1 { font-size: 24px; text-align: center; margin-bottom: 5px; }
         p.subtitle { color: #868e96; font-size: 14px; text-align: center; margin-bottom: 20px; }
         
-        .setup-box {
-            background-color: #f1f3f5;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-        .setup-box input {
-            width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;
-            border: 1px solid #ccc; border-radius: 5px;
-        }
-
         .chat-area {
             flex-grow: 1;
             overflow-y: auto;
@@ -62,7 +50,7 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
-            min-height: 300px;
+            min-height: 400px;
         }
         .message {
             max-width: 80%;
@@ -87,6 +75,7 @@
             font-size: 13px;
             border-radius: 10px;
             max-width: 90%;
+            color: #c92a2a;
         }
 
         .controls { display: flex; justify-content: center; gap: 15px; }
@@ -116,14 +105,6 @@
     <h1>SalesTone AI</h1>
     <p class="subtitle">AI役員との音声ロープレ＆フィードバック</p>
 
-    <div class="setup-box">
-        <strong>事前準備:</strong> Gemini APIキーを入力してください（無料枠で取得可）
-        <input type="password" id="apiKey" placeholder="AIzaSy...">
-        <div style="margin-top:10px; color:#495057;">
-            【設定】あなたは営業担当。<br>相手は大手企業の役員（少し警戒心強め）。<br>商材価格帯は10〜100万円。アポイントからクロージングまで進めてください。
-        </div>
-    </div>
-
     <div class="chat-area" id="chatArea">
         <div class="message ai">（マイクボタンを押して、挨拶から営業をスタートしてください）</div>
     </div>
@@ -136,12 +117,14 @@
 <script>
     const chatArea = document.getElementById('chatArea');
     const micBtn = document.getElementById('micBtn');
-    const apiKeyInput = document.getElementById('apiKey');
+
+    // === 【重要】ここに新しく取得した「AIza...」から始まるAPIキーを貼り付けてください ===
+    const API_KEY = 'ここに新しいAPIキーを貼り付けてください';
+    // ==============================================================================
 
     let chatHistory = [];
     let isRoleplaying = true;
 
-    // --- プロンプト設計（トップセールスの知見を盛り込む） ---
     const systemPrompt = `
 あなたは大手企業の決済権を持つ役員です。私はあなたに単価10万円〜100万円の商材を提案する営業担当です。
 今から音声による商談のロールプレイングを行います。
@@ -158,7 +141,6 @@
 商談終了時、あなたは役員役を降りて、プロの営業コーチとしてフィードバックを行ってください。
 
 【総括コメントの作成基準（トップセールスの極意）】
-以下のポイントを踏まえて、営業担当を評価してください。
 1. 営業は「モノ売り」ではなく「顧客の問題解決」になっているか。
 2. 自分がプレゼンしすぎるのではなく、拡大質問（オープンクエスチョン）で「現状」「課題」「問題を放置した際のリスク・影響」を引き出せていたか。
 3. クロージングにおいて、相手の不安をテストクロージングで引き出し、納得へと導けていたか。
@@ -166,7 +148,6 @@
 必ず最後に「【総括コメント】」という見出しをつけ、良かった点と改善点を具体的にフィードバックして会話を完全に終了させてください。
 `;
 
-    // --- 音声認識 (Web Speech API) ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     if (SpeechRecognition) {
@@ -192,19 +173,15 @@
         recognition.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
             stopListening();
-            alert('音声認識エラーが発生しました。マイクの許可を確認してください。');
+            addMessage('system', '音声認識エラー: ' + event.error);
         };
     } else {
-        alert('お使いのブラウザは音声認識に対応していません。ChromeやEdgeをご利用ください。');
+        alert('お使いのブラウザは音声認識に対応していません。');
     }
 
     micBtn.addEventListener('click', () => {
-        if (!apiKeyInput.value) {
-            alert('Gemini APIキーを入力してください。');
-            return;
-        }
         if (!isRoleplaying) {
-            alert('ロープレは終了しました。ページをリロードして最初からやり直してください。');
+            alert('ロープレは終了しました。ページをリロードしてください。');
             return;
         }
         if (recognition) recognition.start();
@@ -212,11 +189,12 @@
 
     function stopListening() {
         if (recognition) recognition.stop();
-        micBtn.classList.remove('listening');
-        micBtn.innerText = '🎤 マイクで話す';
+        if (isRoleplaying && micBtn.innerText !== '⏳ AIが考え中...') {
+            micBtn.classList.remove('listening');
+            micBtn.innerText = '🎤 マイクで話す';
+        }
     }
 
-    // --- メッセージUI操作 ---
     function addMessage(role, text) {
         const div = document.createElement('div');
         div.className = `message ${role}`;
@@ -226,73 +204,76 @@
         return div;
     }
 
-    // --- ユーザーの発話処理 ---
     async function handleUserSpeech(text) {
         addMessage('user', text);
         chatHistory.push({ role: "user", parts: [{ text: text }] });
         
         micBtn.disabled = true;
+        micBtn.classList.remove('listening');
         micBtn.innerText = '⏳ AIが考え中...';
 
-        await callGeminiAPI();
-
-        if (isRoleplaying) {
-            micBtn.disabled = false;
-            micBtn.innerText = '🎤 マイクで話す';
+        try {
+            await callGeminiAPI();
+        } catch (error) {
+            // エラー時もここで確実に処理し、フリーズを防ぐ
+            console.error(error);
+            addMessage('system', '通信エラー: ' + error.message);
+        } finally {
+            // 成功しても失敗しても、最後に必ずボタンを元に戻す処理（フリーズ対策）
+            if (isRoleplaying) {
+                micBtn.disabled = false;
+                micBtn.innerText = '🎤 マイクで話す';
+            }
         }
     }
 
-    // --- Gemini API呼び出し ---
     async function callGeminiAPI() {
-        const apiKey = apiKeyInput.value;
+        // モデルは最新で安定している gemini-2.0-flash に設定
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
 
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    system_instruction: { parts: { text: systemPrompt } },
-                    contents: chatHistory
-                })
-            });
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system_instruction: { parts: { text: systemPrompt } },
+                contents: chatHistory
+            })
+        });
 
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error.message);
-            }
+        const data = await response.json();
+        
+        // APIキー間違いやエラーが返ってきた場合の処理
+        if (!response.ok || data.error) {
+            const errorMsg = data.error ? data.error.message : `HTTPエラー: ${response.status}`;
+            throw new Error(`APIエラー (${errorMsg})。APIキーが正しいか確認してください。`);
+        }
 
-            const aiText = data.candidates[0].content.parts[0].text;
-            chatHistory.push({ role: "model", parts: [{ text: aiText }] });
-            
-            addMessage('ai', aiText);
-            speak(aiText);
+        // AIの回答がブロックされたり空だったりした場合の処理
+        if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
+            throw new Error('AIからの応答が空でした。内容がセキュリティにブロックされた可能性があります。');
+        }
 
-            // 総括コメントが出たらロープレ終了
-            if (aiText.includes("【総括コメント】")) {
-                isRoleplaying = false;
-                micBtn.disabled = true;
-                micBtn.innerText = '🏁 ロープレ終了';
-                addMessage('system', 'ロールプレイングが終了しました。お疲れ様でした。');
-            }
+        const aiText = data.candidates[0].content.parts[0].text;
+        chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+        
+        addMessage('ai', aiText);
+        speak(aiText);
 
-        } catch (error) {
-            console.error(error);
-            addMessage('system', 'エラーが発生しました: ' + error.message);
+        if (aiText.includes("【総括コメント】")) {
+            isRoleplaying = false;
+            micBtn.disabled = true;
+            micBtn.innerText = '🏁 ロープレ終了';
+            addMessage('system', 'ロールプレイングが終了しました。ページを再読み込みすると初めからやり直せます。');
         }
     }
 
-    // --- 音声合成 (Web Speech API) ---
     function speak(text) {
         if ('speechSynthesis' in window) {
-            // "【総括コメント】"などの記号を読ませないための簡易フィルタ
             const cleanText = text.replace(/【総括コメント】|[*#]/g, '');
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ja-JP';
-            utterance.rate = 1.1;  // 少し早口にしてリアルな会話感を出す
-            utterance.pitch = 0.9; // 役員風の少し落ち着いた声の高さ
-            
+            utterance.rate = 1.1;  
+            utterance.pitch = 0.9; 
             window.speechSynthesis.speak(utterance);
         }
     }
