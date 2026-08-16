@@ -115,7 +115,7 @@
 </div>
 
 <script>
-    // === ご提示いただいた認証トークンを設定 ===
+    // === ご提示いただいた AQ から始まるAPIキーを設定 ===
     const API_KEY = 'AQ.Ab8RN6K7TO1r38aYujE9VOwK7EbUVKfrMKRdOzw384yeexlpaA';
 
     const chatArea = document.getElementById('chatArea');
@@ -225,14 +225,14 @@
     }
 
     async function callGeminiAPI() {
-        // Bearer認証を使用するため、URLから ?key= を削除
+        // GCPプロジェクトのキーに対応するため、URLから ?key= を外し、専用ヘッダーを使用
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
 
         const response = await fetch(url, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_KEY}` // ヘッダーにトークンを設定
+                'x-goog-api-key': API_KEY // Google公式推奨のAPIキーヘッダー
             },
             body: JSON.stringify({
                 system_instruction: { parts: { text: systemPrompt } },
