@@ -115,7 +115,7 @@
 </div>
 
 <script>
-    // === APIキーの定義（埋め込み済み） ===
+    // === ご提示いただいた認証トークンを設定 ===
     const API_KEY = 'AQ.Ab8RN6K7TO1r38aYujE9VOwK7EbUVKfrMKRdOzw384yeexlpaA';
 
     const chatArea = document.getElementById('chatArea');
@@ -225,11 +225,15 @@
     }
 
     async function callGeminiAPI() {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+        // Bearer認証を使用するため、URLから ?key= を削除
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
 
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}` // ヘッダーにトークンを設定
+            },
             body: JSON.stringify({
                 system_instruction: { parts: { text: systemPrompt } },
                 contents: chatHistory
