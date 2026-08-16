@@ -115,7 +115,7 @@
 </div>
 
 <script>
-    // === APIキー設定 ===
+    // === APIキー設定（ご提示いただいたキーをそのまま組み込み済み） ===
     const API_KEY = 'AQ.Ab8RN6K7TO1r38aYujE9VOwK7EbUVKfrMKRdOzw384yeexlpaA';
 
     const chatArea = document.getElementById('chatArea');
@@ -225,8 +225,8 @@
     }
 
     async function callGeminiAPI() {
-        // 安定稼働する gemini-1.5-flash モデルを指定
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+        // モデル名を最新の gemini-2.5-flash にアップデート
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
 
         const response = await fetch(url, {
             method: 'POST',
