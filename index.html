@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SalesTone AI - 営業ロープレアプリ</title>
+    <style>
+        :root {
+            --primary: #5c7cfa;
+            --primary-hover: #4c6ef5;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #343a40;
+            --border: #e9ecef;
+            --ai-bg: #edf2ff;
+            --user-bg: #fff4e6;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            max-width: 600px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+        }
+        h1 { font-size: 24px; text-align: center; margin-bottom: 5px; }
+        p.subtitle { color: #868e96; font-size: 14px; text-align: center; margin-bottom: 20px; }
+        
+        .setup-box {
+            background-color: #f1f3f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .setup-box input {
+            width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;
+            border: 1px solid #ccc; border-radius: 5px;
+        }
+
+        .chat-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-height: 300px;
+        }
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .message.ai {
+            background-color: var(--ai-bg);
+            align-self: flex-start;
+            border-bottom-left-radius: 0;
+        }
+        .message.user {
+            background-color: var(--user-bg);
+            align-self: flex-end;
+            border-bottom-right-radius: 0;
+        }
+        .message.system {
+            background-color: #ffe3e3;
+            align-self: center;
+            font-size: 13px;
+            border-radius: 10px;
+            max-width: 90%;
+        }
+
+        .controls { display: flex; justify-content: center; gap: 15px; }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #micBtn { background-color: #ff6b6b; color: white; width: 200px; }
+        #micBtn.listening { background-color: #c92a2a; animation: pulse 1.5s infinite; }
+        #micBtn:disabled { background-color: #ced4da; cursor: not-allowed; animation: none; }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 107, 107, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>SalesTone AI</h1>
+    <p class="subtitle">AI役員との音声ロープレ＆フィードバック</p>
+
+    <div class="setup-box">
+        <strong>事前準備:</strong> Gemini APIキーを入力してください（無料枠で取得可）
+        <input type="password" id="apiKey" placeholder="AIzaSy...">
+        <div style="margin-top:10px; color:#495057;">
+            【設定】あなたは営業担当。<br>相手は大手企業の役員（少し警戒心強め）。<br>商材価格帯は10〜100万円。アポイントからクロージングまで進めてください。
+        </div>
+    </div>
+
+    <div class="chat-area" id="chatArea">
+        <div class="message ai">（マイクボタンを押して、挨拶から営業をスタートしてください）</div>
+    </div>
+
+    <div class="controls">
+        <button id="micBtn">🎤 マイクで話す</button>
+    </div>
+</div>
+
+<script>
+    const chatArea = document.getElementById('chatArea');
+    const micBtn = document.getElementById('micBtn');
+    const apiKeyInput = document.getElementById('apiKey');
+
+    let chatHistory = [];
+    let isRoleplaying = true;
+
+    // --- プロンプト設計（トップセールスの知見を盛り込む） ---
+    const systemPrompt = `
+あなたは大手企業の決済権を持つ役員です。私はあなたに単価10万円〜100万円の商材を提案する営業担当です。
+今から音声による商談のロールプレイングを行います。
+
+【あなたの役割と性格】
+- 大手企業の役員。忙しく、最初は少し警戒心が強いです。
+- 営業担当の発言に対し、短く自然な会話（1〜3文程度）で返答してください。
+- 商談中、以下のような「鋭く、いやらしい質問」を適度に投げかけてください。
+  例：「それって他社と何が違うの？」「費用対効果は本当に出るの？」「今のままで十分回ってるけど？」
+- すぐには納得しません。営業担当があなたの「現状の課題」や「放置した際のリスク」をうまく引き出せるか試してください。
+
+【終了条件と総括コメント】
+ユーザーがクロージング（契約の打診や、次回の約束）を明確に行ってきた場合、または会話が10往復程度に達した場合、商談を終了してください。
+商談終了時、あなたは役員役を降りて、プロの営業コーチとしてフィードバックを行ってください。
+
+【総括コメントの作成基準（トップセールスの極意）】
+以下のポイントを踏まえて、営業担当を評価してください。
+1. 営業は「モノ売り」ではなく「顧客の問題解決」になっているか。
+2. 自分がプレゼンしすぎるのではなく、拡大質問（オープンクエスチョン）で「現状」「課題」「問題を放置した際のリスク・影響」を引き出せていたか。
+3. クロージングにおいて、相手の不安をテストクロージングで引き出し、納得へと導けていたか。
+
+必ず最後に「【総括コメント】」という見出しをつけ、良かった点と改善点を具体的にフィードバックして会話を完全に終了させてください。
+`;
+
+    // --- 音声認識 (Web Speech API) ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'ja-JP';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            micBtn.classList.add('listening');
+            micBtn.innerText = '🗣️ 聞いています...';
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            handleUserSpeech(transcript);
+        };
+
+        recognition.onspeechend = () => {
+            stopListening();
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            stopListening();
+            alert('音声認識エラーが発生しました。マイクの許可を確認してください。');
+        };
+    } else {
+        alert('お使いのブラウザは音声認識に対応していません。ChromeやEdgeをご利用ください。');
+    }
+
+    micBtn.addEventListener('click', () => {
+        if (!apiKeyInput.value) {
+            alert('Gemini APIキーを入力してください。');
+            return;
+        }
+        if (!isRoleplaying) {
+            alert('ロープレは終了しました。ページをリロードして最初からやり直してください。');
+            return;
+        }
+        if (recognition) recognition.start();
+    });
+
+    function stopListening() {
+        if (recognition) recognition.stop();
+        micBtn.classList.remove('listening');
+        micBtn.innerText = '🎤 マイクで話す';
+    }
+
+    // --- メッセージUI操作 ---
+    function addMessage(role, text) {
+        const div = document.createElement('div');
+        div.className = `message ${role}`;
+        div.innerHTML = text.replace(/\n/g, '<br>');
+        chatArea.appendChild(div);
+        chatArea.scrollTop = chatArea.scrollHeight;
+        return div;
+    }
+
+    // --- ユーザーの発話処理 ---
+    async function handleUserSpeech(text) {
+        addMessage('user', text);
+        chatHistory.push({ role: "user", parts: [{ text: text }] });
+        
+        micBtn.disabled = true;
+        micBtn.innerText = '⏳ AIが考え中...';
+
+        await callGeminiAPI();
+
+        if (isRoleplaying) {
+            micBtn.disabled = false;
+            micBtn.innerText = '🎤 マイクで話す';
+        }
+    }
+
+    // --- Gemini API呼び出し ---
+    async function callGeminiAPI() {
+        const apiKey = apiKeyInput.value;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system_instruction: { parts: { text: systemPrompt } },
+                    contents: chatHistory
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error.message);
+            }
+
+            const aiText = data.candidates[0].content.parts[0].text;
+            chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+            
+            addMessage('ai', aiText);
+            speak(aiText);
+
+            // 総括コメントが出たらロープレ終了
+            if (aiText.includes("【総括コメント】")) {
+                isRoleplaying = false;
+                micBtn.disabled = true;
+                micBtn.innerText = '🏁 ロープレ終了';
+                addMessage('system', 'ロールプレイングが終了しました。お疲れ様でした。');
+            }
+
+        } catch (error) {
+            console.error(error);
+            addMessage('system', 'エラーが発生しました: ' + error.message);
+        }
+    }
+
+    // --- 音声合成 (Web Speech API) ---
+    function speak(text) {
+        if ('speechSynthesis' in window) {
+            // "【総括コメント】"などの記号を読ませないための簡易フィルタ
+            const cleanText = text.replace(/【総括コメント】|[*#]/g, '');
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'ja-JP';
+            utterance.rate = 1.1;  // 少し早口にしてリアルな会話感を出す
+            utterance.pitch = 0.9; // 役員風の少し落ち着いた声の高さ
+            
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+</script>
+
+</body>
+</html>
