@@ -115,7 +115,7 @@
 </div>
 
 <script>
-    // === ご提示いただいた AQ から始まるAPIキーを設定 ===
+    // === APIキー設定（ご提示いただいたキーをそのまま組み込み済み） ===
     const API_KEY = 'AQ.Ab8RN6K7TO1r38aYujE9VOwK7EbUVKfrMKRdOzw384yeexlpaA';
 
     const chatArea = document.getElementById('chatArea');
@@ -225,14 +225,14 @@
     }
 
     async function callGeminiAPI() {
-        // GCPプロジェクトのキーに対応するため、URLから ?key= を外し、専用ヘッダーを使用
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
+        // モデル名を最新の gemini-2.5-flash にアップデート
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
 
         const response = await fetch(url, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'x-goog-api-key': API_KEY // Google公式推奨のAPIキーヘッダー
+                'x-goog-api-key': API_KEY 
             },
             body: JSON.stringify({
                 system_instruction: { parts: { text: systemPrompt } },
